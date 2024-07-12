@@ -53,5 +53,5 @@ if __name__ == "__main__":
     }
     model_name = "tunedModels/rdsi-hsrs1unlkdaz"
 
-    skillGemini = SkillGemini(args.gemini_api_key, model_name ,generation_config)
+    skillGemini = SkillGemini(api_key=args.gemini_api_key, model_name=model_name ,generation_config=generation_config)
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")

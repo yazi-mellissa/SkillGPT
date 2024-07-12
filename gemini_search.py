@@ -1,19 +1,5 @@
 import google.generativeai as genai
-
-
-class SkillAI:
-    def __init__(self, api_key:str, api_url:str):
-        self.api_key = api_key
-        self.auth = {"Authorization": f"Bearer {api_key}"}
-        self.api_url = api_url
-    
-    def __init__(self, api_key:str):
-        self.api_key = api_key
-        self.auth = {"Authorization": f"Bearer {api_key}"}
-
-    def search(self, query:str):
-        pass
-
+from ai_search import SkillAI
 
 class SkillGemini(SkillAI):
     def __init__(self, api_key:str,model_name:str,generation_config:dict):
@@ -31,5 +17,4 @@ class SkillGemini(SkillAI):
         f"input: {query}",
         "output: ",
         ])
-        print(response)
         return response
