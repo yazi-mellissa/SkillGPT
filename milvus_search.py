@@ -9,7 +9,7 @@ skills_csv_file_path = "esco_embeddings/ESCO_khaled_version.csv"
 
 
 class MilvusMemory:
-    def __init__(self, milvus_path, api_key, wipe_milvus_on_start=False):
+    def __init__(self, milvus_path, wipe_milvus_on_start=False):
         self.client = MilvusClient(milvus_path)
         self.embedding_fn = model.dense.SentenceTransformerEmbeddingFunction(
             model_name='All-MPNet-Base-V2',
@@ -51,6 +51,29 @@ class MilvusMemory:
         except Exception as e:
             logging.error(f"Error initializing skills embeddings: {e}")
 
+    """
+    def _setup_collection(self):
+        if self.client.has_collection(collection_name=collection):
+            self.client.drop_collection(collection_name=collection)
+
+        skills_df = pd.read_csv(skills_csv_file_path)
+        docs = skills_df['text'].tolist()
+        expertises = skills_df['expertise'].tolist()
+
+        vectors = self.embedding_fn.encode_documents(docs)
+
+        # Insert data in batches
+        batch_size = 1000
+        for i in range(0, len(docs), batch_size):
+            batch_data = [
+                {"id": i + j, "vector": vectors[i + j], "text": docs[i + j], "expertise": expertises[i + j]}
+                for j in range(min(batch_size, len(docs) - i))
+            ]
+            self.client.insert(
+                collection_name=collection,
+                data=batch_data,
+            )
+    """
 
 
     def get_relevant(
@@ -64,7 +87,7 @@ class MilvusMemory:
                 collection_name=collection,
                 data=query_vectors,
                 limit=num_relevant,
-                output_fields=["id", "expertise"],
+                output_fields=["expertise"],
             )
             return results
         except Exception as e:
