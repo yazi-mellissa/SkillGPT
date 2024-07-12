@@ -37,5 +37,6 @@ if __name__ == "__main__":
     parser.add_argument("--api-key", type=str, default=API_KEY)
     args = parser.parse_args()
 
-    milvus_memory = MilvusMemory("milvus_demo.db", wipe_milvus_on_start=False)
+    milvus_memory = MilvusMemory("milvus_demo.db",api_key=args.api_key, wipe_milvus_on_start=False)
+    
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
