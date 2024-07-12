@@ -1,0 +1,5 @@
+esco_embeddings
+__pycache__
+.env
+milvus_demo.db
+.milvus_demo.db.lock
