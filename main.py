@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from milvus_search import MilvusMemory
 from gemini_search import SkillGemini
 from open_ai_search import SkillOpenAI
+from bert_search import SkillBERT
 
 app = FastAPI()
 
@@ -71,4 +72,5 @@ if __name__ == "__main__":
     model_name_open_ai = "ft:gpt-3.5-turbo-0125:rdsi:expertise1:9kScjB8w"
     skillGemini = SkillGemini(api_key=args.gemini_api_key, model_name=model_name_gemini ,generation_config=generation_config_gemini)
     skillOpenAI = SkillOpenAI(api_key=args.open_api_key, model_name=model_name_open_ai ,generation_config=generation_config_open_ai)
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    skillBERT = SkillBERT("models/fine-tuned-bert")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="info")  

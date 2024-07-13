@@ -43,7 +43,6 @@ class SkillGemini(SkillAI):
                 f"input: {query}",
                 "output: ",
             ])
-
             content = response['output']
             skills_list = [skill.strip() for skill in content.split(',')]
             skills_dict = {skill: True for skill in skills_list if skill}
