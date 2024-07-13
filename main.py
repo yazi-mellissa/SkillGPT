@@ -5,14 +5,15 @@ from fastapi import FastAPI, Request
 from dotenv import load_dotenv
 from milvus_search import MilvusMemory
 from gemini_search import SkillGemini
+from open_ai_search import SkillOpenAI
 
 app = FastAPI()
 
 load_dotenv()
 API_HOST = os.getenv("API_HOST")
-API_PORT = os.getenv("API_PORT")
+API_PORT = int(os.getenv("API_PORT"))
 REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = os.getenv("REDIS_PORT")
+REDIS_PORT = int(os.getenv("REDIS_PORT"))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -27,6 +28,10 @@ def search(query: str):
 def search(query: str):
     return skillGemini.search(query)
 
+@app.get("/search_openai")
+def search(query: str):
+    skills = skillOpenAI.search(query)
+    
 
 
 if __name__ == "__main__":
@@ -44,14 +49,23 @@ if __name__ == "__main__":
     milvus_memory = MilvusMemory("milvus_demo.db", wipe_milvus_on_start=False)
 
     # from get code in ai.studio google.generativeai import genai
-    generation_config = {
+    generation_config_gemini = {
             "temperature": 0.9,
             "top_p": 1,
             "top_k": 0,
             "max_output_tokens": 8192,
             "response_mime_type": "text/plain",
     }
-    model_name = "tunedModels/rdsi-hsrs1unlkdaz"
+    model_name_gemini = "tunedModels/rdsi-hsrs1unlkdaz"
 
-    skillGemini = SkillGemini(api_key=args.gemini_api_key, model_name=model_name ,generation_config=generation_config)
+    generation_config_open_ai = {
+        "max_tokens": 100,
+        "n":1,
+        "stop":None,
+        "temperature":0.5,
+    }
+
+    model_name_open_ai = "ft:gpt-3.5-turbo-0125:rdsi:expertise1:9kScjB8w"
+    skillGemini = SkillGemini(api_key=args.gemini_api_key, model_name=model_name_gemini ,generation_config=generation_config_gemini)
+    skillOpenAI = SkillOpenAI(api_key=args.open_api_key, model_name=model_name_open_ai ,generation_config=generation_config_open_ai)
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
