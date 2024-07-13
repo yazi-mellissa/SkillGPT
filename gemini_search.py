@@ -1,8 +1,23 @@
 import google.generativeai as genai
+import logging
 from ai_search import SkillAI
 
+
+#TODO: Fix the SkillGemini solution
 class SkillGemini(SkillAI):
-    def __init__(self, api_key:str,model_name:str,generation_config:dict):
+    """
+    A class to interface with Google Gemini AI for skill extraction.
+    """
+    
+    def __init__(self, api_key: str, model_name: str, generation_config: dict):
+        """
+        Initializes a new instance of the SkillGemini class.
+        
+        Args:
+            api_key (str): API key for Google Gemini.
+            model_name (str): Name of the model to use.
+            generation_config (dict): Configuration dictionary for generation settings.
+        """
         super().__init__(api_key)
         genai.configure(api_key=self.api_key)
         self.generation_config = generation_config
@@ -11,10 +26,29 @@ class SkillGemini(SkillAI):
             model_name=self.model_name,
             generation_config=self.generation_config,
         )
+        logging.info("SkillGemini instance created and configured with API key and model.")
 
     def search(self, query: str):
-        response = self.model.generate_content([
-        f"input: {query}",
-        "output: ",
-        ])
-        return response
+        """
+        Searches for relevant skills using Google Gemini based on the input query.
+        
+        Args:
+            query (str): The query string to search for.
+        
+        Returns:
+            dict: A dictionary of skills extracted from the response.
+        """
+        try:
+            response = self.model.generate_content([
+                f"input: {query}",
+                "output: ",
+            ])
+
+            content = response['output']
+            skills_list = [skill.strip() for skill in content.split(',')]
+            skills_dict = {skill: True for skill in skills_list if skill}
+            logging.info("Successfully retrieved and processed skills.")
+            return skills_dict
+        except Exception as e:
+            logging.error(f"Error retrieving or processing response: {e}")
+            return {}

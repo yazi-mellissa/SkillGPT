@@ -41,8 +41,11 @@ class SkillOpenAI(SkillAI):
                 **self.generation_config
             )
             content = response.choices[0].message.content
+            skills_list = [skill.strip() for skill in content.split(',')]
+
             logging.info("Successfully retrieved response.")
-            return content
+            return skills_list
+        
         except Exception as e:
             logging.error(f"Failed to retrieve response: {e}")
             return "An error occurred while processing your request."

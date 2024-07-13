@@ -31,8 +31,11 @@ def search(query: str):
 @app.get("/search_openai")
 def search(query: str):
     skills = skillOpenAI.search(query)
+    return skills
     
-
+@app.get("/search_bert")
+def search(query: str):
+    pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
