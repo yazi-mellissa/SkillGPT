@@ -1,8 +1,8 @@
 from openai import OpenAI
 import logging
-from ai_search import SkillAI
+from ISearch import ISearch
 
-class SkillOpenAI(SkillAI):
+class SkillOpenAI(ISearch):
     def __init__(self, api_key: str, model_name: str, generation_config: dict):
         """
         Initializes the SkillOpenAI object with OpenAI API key, model name, and generation configuration.
@@ -12,7 +12,6 @@ class SkillOpenAI(SkillAI):
             model_name (str): Name of the model to use for generation.
             generation_config (dict): Configuration dictionary for generating responses.
         """
-        super().__init__(api_key)
         self.client = OpenAI(api_key=api_key)
         self.model_name = model_name
         self.generation_config = generation_config

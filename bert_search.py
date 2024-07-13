@@ -1,11 +1,9 @@
 import torch
-import torch.nn.functional as F
-from transformers import BertModel, BertTokenizer
+from transformers import BertForSequenceClassification, BertTokenizer
 import logging
+from ISearch import ISearch
 
-
-# Link to the google colab : https://colab.research.google.com/drive/1S9CaidSbCmetlsjKoSTLcATej0D3i_P0#scrollTo=hLciQaKm_2Qx
-class SkillBERT:
+class SkillBERT(ISearch):
     """
     A class to interface with BERT for skill extraction.
     """
@@ -18,10 +16,10 @@ class SkillBERT:
             model_name (str, optional): Name of the pre-trained BERT model to use. Defaults to 'bert-base-uncased'.
         """
         self.tokenizer = BertTokenizer.from_pretrained(model_path)
-        self.model = BertModel.from_pretrained(model_path)
+        self.model = BertForSequenceClassification.from_pretrained(model_path, num_labels=2)  # Assuming binary classification (skill or not skill)
         logging.info(f"SkillBERT instance created with model: {model_path}")
 
-    def _tokenize(self, text: str,max_length=128):
+    def _tokenize(self, text: str, max_length=128):
         """
         Tokenizes the input text using the BERT tokenizer.
         
@@ -36,16 +34,29 @@ class SkillBERT:
         return tokenized_input
 
     def predict_skills(self, text):
-        self.model.eval()  # Set the model to evaluation mode
-        inputs = self._tokenize(text, self.tokenizer)
+        self.model.eval()
+        inputs = self._tokenize(text)
         with torch.no_grad():
             outputs = self.model(**inputs)
 
         logits = outputs.logits
+        logging.info(f"Logits: {logits}")
         predictions = torch.argmax(logits, dim=-1)
+        logging.info(f"Predictions: {predictions}")
+        logging.info(f"Predictions shape: {predictions.shape}")
 
         tokens = self.tokenizer.convert_ids_to_tokens(inputs['input_ids'].squeeze().tolist())
-        predicted_labels = predictions.squeeze().tolist()
+        logging.info(f"Tokens: {tokens}")
+
+        if predictions.dim() == 0:
+            predicted_labels = [predictions.item()] * len(tokens)
+        else:
+            predicted_labels = predictions.squeeze().tolist()
+
+        logging.info(f"Predicted labels: {predicted_labels}")
+
+        if isinstance(predicted_labels, int):
+            predicted_labels = [predicted_labels]
 
         skills = []
         for token, label in zip(tokens, predicted_labels):

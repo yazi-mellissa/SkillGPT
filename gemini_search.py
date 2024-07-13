@@ -1,10 +1,9 @@
 import google.generativeai as genai
 import logging
-from ai_search import SkillAI
-
+from ISearch import ISearch
 
 #TODO: Fix the SkillGemini solution
-class SkillGemini(SkillAI):
+class SkillGemini(ISearch):
     """
     A class to interface with Google Gemini AI for skill extraction.
     """
@@ -18,8 +17,7 @@ class SkillGemini(SkillAI):
             model_name (str): Name of the model to use.
             generation_config (dict): Configuration dictionary for generation settings.
         """
-        super().__init__(api_key)
-        genai.configure(api_key=self.api_key)
+        genai.configure(api_key=api_key)
         self.generation_config = generation_config
         self.model_name = model_name
         self.model = genai.GenerativeModel(
@@ -45,9 +43,8 @@ class SkillGemini(SkillAI):
             ])
             content = response['output']
             skills_list = [skill.strip() for skill in content.split(',')]
-            skills_dict = {skill: True for skill in skills_list if skill}
             logging.info("Successfully retrieved and processed skills.")
-            return skills_dict
+            return skills_list
         except Exception as e:
             logging.error(f"Error retrieving or processing response: {e}")
             return {}

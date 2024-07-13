@@ -11,7 +11,7 @@ class MilvusMemory:
     A class for managing skill embeddings using Milvus vector database.
     """
     
-    def __init__(self, milvus_path: str, wipe_milvus_on_start: bool = False):
+    def __init__(self, milvus_path: str,api_key:str = None, wipe_milvus_on_start: bool = False):
         """
         Initializes a new instance of MilvusMemory.
         
@@ -20,11 +20,11 @@ class MilvusMemory:
             wipe_milvus_on_start (bool, optional): Determines whether to wipe the existing Milvus collection on startup. Defaults to False.
         """
         self.client = MilvusClient(milvus_path)
-        self.embedding_fn = model.dense.SentenceTransformerEmbeddingFunction(
-            model_name='All-MPNet-Base-V2',
-            device='cpu'
+        self.embedding_fn = model.dense.OpenAIEmbeddingFunction(
+            model_name='text-embedding-ada-002',
+            api_key=api_key,
         )
-        
+                
         if wipe_milvus_on_start:
             self._setup_collection()
 

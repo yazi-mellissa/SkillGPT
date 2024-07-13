@@ -36,7 +36,9 @@ def search(query: str):
     
 @app.get("/search_bert")
 def search(query: str):
-    pass
+    skills = skillBERT.search(query)
+    return skills
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -50,7 +52,7 @@ if __name__ == "__main__":
     parser.add_argument("--gemini_api-key", type=str, default=GEMINI_API_KEY)
     args = parser.parse_args()
 
-    milvus_memory = MilvusMemory("milvus_demo.db", wipe_milvus_on_start=False)
+    milvus_memory = MilvusMemory("milvus_demo.db",args.open_api_key , wipe_milvus_on_start=False)
 
     # from get code in ai.studio google.generativeai import genai
     generation_config_gemini = {
