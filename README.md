@@ -1,1 +1,0 @@
-# SkillGPT_RDSI
