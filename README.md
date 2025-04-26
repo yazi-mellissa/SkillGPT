@@ -7,7 +7,6 @@ A FastAPI application that provides endpoints for searching skills using various
   - Vector search using Milvus/Zilliz
   - OpenAI model-based skill extraction
   - Google Gemini AI-based skill extraction
-  - BERT model-based skill extraction
 - Response caching with GPTCache
 - Docker and Docker Compose support for easy deployment
 - Structured project layout following best practices
