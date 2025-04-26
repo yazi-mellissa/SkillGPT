@@ -26,7 +26,6 @@ A FastAPI application that provides endpoints for searching skills using various
 │   │
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── bert_service.py   # BERT model service
 │   │   ├── gemini_service.py # Gemini AI service
 │   │   ├── openai_service.py # OpenAI service
 │   │   ├── milvus_service.py # Milvus/Zilliz service
