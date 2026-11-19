@@ -22,22 +22,43 @@ pay for a second model call.
 
 ```
 app/
-├── main.py               # FastAPI startup
+├── main.py                    # FastAPI application and startup
 ├── api/
-│   └── routes.py         # the three search endpoints + health
-├── services/
-│   ├── milvus_service.py # Zilliz collection, embedding, nearest-neighbour retrieval
-│   ├── openai_service.py # skill extraction through OpenAI
-│   ├── gemini_service.py # skill extraction through Gemini
-│   ├── gpt_cache.py      # GPTCache over Redis
-│   └── memory_manager.py # Zilliz Cloud lifecycle
-└── core/
-    ├── config.py         # settings, read from the environment only
-    └── logging.py
+│   └── routes.py              # the four search endpoints and health
+├── core/
+│   ├── config.py              # settings, read from the environment only
+│   ├── deps.py                # service instances, built once and shared
+│   └── logging.py
+└── services/
+    ├── milvus_service.py      # Zilliz collection, embedding, nearest-neighbour search
+    ├── openai_service.py      # extraction through an OpenAI chat model
+    ├── gemini_service.py      # extraction through Google Gemini
+    ├── encoder_service.py     # BERT, RoBERTa or DistilBERT, running locally
+    ├── cache.py               # Redis response cache
+    └── memory_manager.py      # Zilliz Cloud lifecycle
+data/skills.txt                # the catalogue the bounded backends search
+benchmark/                     # the annotated set, the metrics, the comparisons
+deploy/azure/                  # Container Apps and Redis, as Bicep
 ```
 
-Configuration is read entirely from the environment through Pydantic settings. No key, URI or token
-is ever written in the code, and `.env` is excluded from version control.
+Three decisions shape the rest.
+
+**Services are built once and shared.** They hold network clients and no per-request
+state, so constructing them per request would reopen a Zilliz connection and rebuild the
+cache on every call, and a cache rebuilt on every call never returns a hit.
+
+**A missing key degrades one backend, not the service.** At startup each backend is tried
+and the outcome recorded; `/api/health` reports it. Running with only the vector index,
+or only one provider, is a legitimate deployment, and an orchestrator should not restart
+the container because a Gemini key is absent.
+
+**The cache is exact, not semantic.** Keys are a hash of the normalised query, together
+with the backend and the model name, so changing `OPENAI_MODEL_NAME` cannot keep serving
+answers from the previous model. Returning a stored answer for a merely *similar* query is
+a different and riskier feature, and it is deliberately not implemented here.
+
+Configuration is read entirely from the environment through Pydantic settings. No key, URI
+or token is written in the code, and `.env` is excluded from version control.
 
 ## Prerequisites
 
@@ -210,8 +231,8 @@ Two pipelines, because they do different jobs.
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to this
 repository: lint, then the benchmark tests on Python 3.10, 3.11 and 3.12, then it builds
 the image, **starts it with no credentials at all and waits for `/api/health`**. That last
-step exists because a published version of this project could not be imported at all and
-nothing caught it, for the simple reason that nothing had ever tried to start it.
+step is the one that matters: an image that builds is not an image that runs, and a
+service that only ever starts through `docker-compose` is never tested on its own.
 
 [`.gitlab-ci.yml`](.gitlab-ci.yml) is the shipping path: the same checks, then push to a
 container registry and roll out to Azure Container Apps, with the deploy stage manual so a
@@ -234,30 +255,6 @@ is 0 and it scales on HTTP concurrency. And **the liveness probe is not a readin
 probe**: `/api/health` reports a missing provider key as a degraded backend, and a service
 answering on two backends out of four should keep taking traffic rather than be pulled out
 of rotation for it.
-
-
-## What was wrong, and what changed
-
-The service as published could not start. These are the defects found and fixed, recorded
-because the first one explains a feature that was documented and had never run.
-
-- **The response cache could never return a hit.** The routes declared their dependencies
-  as `Depends()` on the service classes, so FastAPI rebuilt each service on every request,
-  and each constructor opens network clients. The OpenAI service rebuilt its whole cache
-  manager per call, so the cache was empty every time. Services are now built once.
-- **The application could not import at all.** `gptcache.adapter.openai` subclasses
-  `openai.ChatCompletion`, removed in openai 1.0, while `requirements.txt` asked for
-  openai>=1.3. The import raised, and it sat on the path of every request. GPTCache is
-  replaced by a small explicit Redis cache.
-- **The container crashed on startup.** `docker-compose.yaml` had
-  `REDIS_PORT={REDIS_PORT}` with no dollar sign, so `int()` received a literal brace.
-- **A declared dependency was missing.** GPTCache stores in Redis, and `redis` was not in
-  `requirements.txt`; the image worked only through a transitive dependency.
-- **Dead configuration.** `BERT_MODEL_NAME` pointed at a component deleted in an earlier
-  refactor. BERT is now a real backend again rather than a setting with nothing behind it.
-- Versions are pinned, every compose variable has a default, and `/api/health` reports
-  which backends are configured, so the service starts and stays useful when a key is
-  absent instead of failing as a whole.
 
 
 ## License
