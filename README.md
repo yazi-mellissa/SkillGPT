@@ -1,123 +1,111 @@
-# Skills Extraction API
-A FastAPI application that provides endpoints for searching skills using various AI models including OpenAI, Google Gemini, with vector search capabilities using Milvus/Zilliz.
+# SkillGPT: three ways to pull skills out of free text
 
-## Features
+Given a job description, a CV or any piece of free text, return the skills it mentions.
 
-- Multiple skill search endpoints using different AI models:
-  - Vector search using Milvus/Zilliz
-  - OpenAI model-based skill extraction
-  - Google Gemini AI-based skill extraction
-- Response caching with GPTCache
-- Docker and Docker Compose support for easy deployment
-- Structured project layout following best practices
+The interesting part is that there is no single right way to do this, so this service implements
+**three** and puts them behind the same interface:
 
-## Project Structure
+| Approach | Endpoint | How it decides |
+|---|---|---|
+| **Vector search** | `/search` | Embeds the query and retrieves the 15 nearest entries from a Milvus/Zilliz collection of known skills. Bounded to a fixed vocabulary, fast, cheap, no hallucination possible. |
+| **OpenAI** | `/search_openai` | Asks a GPT model to extract the skills. Open vocabulary, handles phrasing the index has never seen, costs a call and can invent. |
+| **Gemini** | `/search_gemini` | The same, through Google Gemini, so the two providers can be compared on identical input. |
+
+Swapping between them is a change of URL, which is the point: the three can be measured against
+each other on the same queries.
+
+Responses are cached with GPTCache backed by Redis, so a repeated or near-identical query does not
+pay for a second model call.
+
+## Architecture
 
 ```
-/your_project/
-│
-├── app/
-│   ├── __init__.py
-│   ├── main.py               # FastAPI app startup
-│   │
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── routes.py         # API endpoints
-│   │
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── gemini_service.py # Gemini AI service
-│   │   ├── openai_service.py # OpenAI service
-│   │   ├── milvus_service.py # Milvus/Zilliz service
-│   │   ├── gpt_cache.py      # GPTCache integration
-│   │   ├── memory_manager.py # Zilliz Cloud management
-│   │
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config.py         # Configuration loading
-│   │   ├── logging.py        # Logging configuration
-│
-├── .env                      # Environment variables
-├── Dockerfile                # Docker configuration
-├── docker-compose.yml        # Docker Compose configuration
-├── README.md                 # Project documentation
-├── requirements.txt          # Python dependencies
+app/
+├── main.py               # FastAPI startup
+├── api/
+│   └── routes.py         # the three search endpoints + health
+├── services/
+│   ├── milvus_service.py # Zilliz collection, embedding, nearest-neighbour retrieval
+│   ├── openai_service.py # skill extraction through OpenAI
+│   ├── gemini_service.py # skill extraction through Gemini
+│   ├── gpt_cache.py      # GPTCache over Redis
+│   └── memory_manager.py # Zilliz Cloud lifecycle
+└── core/
+    ├── config.py         # settings, read from the environment only
+    └── logging.py
 ```
+
+Configuration is read entirely from the environment through Pydantic settings. No key, URI or token
+is ever written in the code, and `.env` is excluded from version control.
 
 ## Prerequisites
 
 - Python 3.11+
-- Docker and Docker Compose (for containerized deployment)
+- Docker and Docker Compose, for the containerised deployment
 - API keys for OpenAI and Google Gemini
-- Zilliz Cloud account (for vector database)
+- A Zilliz Cloud account, for the vector database
 
-## Environment Variables
+## Environment variables
 
-Copy the `.env.example` file to `.env` and fill in your API keys and configuration:
+Copy `.env.example` to `.env` and fill it in:
 
 ```
-# API Server Configuration
+# API server
 API_HOST=0.0.0.0
 API_PORT=8000
 
-# Redis Configuration
+# Redis, used by the cache
 REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_PASSWORD=
 
-# API Keys
+# Model providers
 OPEN_API_KEY=
 GEMINI_API_KEY=
+OPENAI_MODEL_NAME=
+GEMINI_MODEL_NAME=
 
-# Caching Configuration
+# Caching
 USE_GPTCACHE=true
 
-# Zilliz/Milvus Configuration
+# Zilliz / Milvus
 ZILLIZ_URI=
 ZILLIZ_TOKEN=
 WIPE_MILVUS_ON_START=false
-
-# Model Configuration
-GEMINI_MODEL_NAME=
-OPENAI_MODEL_NAME=
 ```
 
-## Installation and Running
+## Running it
 
-### Using Docker Compose (Recommended)
+With Docker Compose, which also brings up Redis:
 
-1. Build and start the containers:
-   ```
-   docker-compose up -d
-   ```
-
-2. Access the API at http://localhost:8000
-
-### Manual Setup
-
-1. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-
-2. Run the application:
-   ```
-   uvicorn app.main:app --reload
-   ```
-
-## API Endpoints
-
-- `/search?query=...` - Search skills using vector embeddings in Milvus/Zilliz
-- `/search_openai?query=...` - Extract skills using OpenAI models
-- `/search_gemini?query=...` - Extract skills using Google Gemini AI
-- `/api/health` - Health check endpoint
-
-## Development
-
-To run the application in development mode:
-
+```bash
+docker-compose up -d
 ```
+
+The API is then on http://localhost:8000, with the interactive documentation on `/docs`.
+
+Manually:
+
+```bash
+pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-This will automatically reload the application when changes are detected.
+## Endpoints
+
+| Route | Returns |
+|---|---|
+| `GET /search?query=...` | The 15 closest skills in the vector index |
+| `GET /search_openai?query=...` | Skills extracted by the OpenAI model |
+| `GET /search_gemini?query=...` | Skills extracted by Gemini |
+| `GET /api/health` | Health check |
+
+## What is missing
+
+The three approaches have never been measured against each other on a common annotated set.
+Precision, recall, latency and cost per query would settle which one to use when, and that
+comparison is the next thing this repository should contain.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
