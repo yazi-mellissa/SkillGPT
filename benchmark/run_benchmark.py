@@ -15,7 +15,6 @@ the easiest way to get a wrong answer out of this script.
 
 import argparse
 import json
-import statistics
 import time
 from pathlib import Path
 

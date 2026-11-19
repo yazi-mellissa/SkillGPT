@@ -1,0 +1,10 @@
+# Lint settings used by both CI pipelines.
+line-length = 100
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",  # line length is reported by the formatter, not worth failing a build on
+    "B008",  # FastAPI's Depends() and Query() are function calls in defaults by design
+]

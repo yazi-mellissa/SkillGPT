@@ -17,10 +17,9 @@ invent one. The benchmark is what shows which of those two properties matters mo
 """
 
 import logging
-import re
 import os
+import re
 from pathlib import Path
-from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -62,16 +61,17 @@ class EncoderService:
                     self.model_name, self.device, len(self.skills))
 
     @staticmethod
-    def _load_catalogue(path: Path) -> List[str]:
+    def _load_catalogue(path: Path) -> list[str]:
         if not path.exists():
             raise FileNotFoundError(f"skill catalogue not found at {path}")
         with open(path, encoding="utf-8") as fh:
-            skills = [l.strip() for l in fh if l.strip() and not l.startswith("#")]
+            skills = [line.strip() for line in fh
+                      if line.strip() and not line.startswith("#")]
         if not skills:
             raise ValueError(f"skill catalogue at {path} is empty")
         return skills
 
-    def _embed(self, texts: List[str]):
+    def _embed(self, texts: list[str]):
         """Mean-pool the last hidden state over the attention mask, then L2-normalise.
 
         Normalising here means the similarity below is a plain dot product, so the query
@@ -91,7 +91,7 @@ class EncoderService:
         return torch.cat(out, dim=0)
 
     @staticmethod
-    def _spans(query: str, max_len: int = 3) -> List[str]:
+    def _spans(query: str, max_len: int = 3) -> list[str]:
         """Every 1 to 3 word window of the query, deduplicated and order-preserving.
 
         This exists because of a mistake worth recording. Embedding a whole job advert
@@ -111,7 +111,7 @@ class EncoderService:
         return spans
 
     def search(self, query: str, top_k: int = 15, min_score: float = 0.0,
-               mode: str = "spans") -> List[dict]:
+               mode: str = "spans") -> list[dict]:
         """Return the catalogue entries this query is closest to, with their similarity.
 
         `mode="spans"` scores every short window of the query against the catalogue and
@@ -142,6 +142,6 @@ class EncoderService:
         top = torch.topk(scores, k=k)
         return [
             {"skill": self.skills[idx], "score": round(float(score), 4)}
-            for score, idx in zip(top.values.tolist(), top.indices.tolist())
+            for score, idx in zip(top.values.tolist(), top.indices.tolist(), strict=False)
             if score >= min_score
         ]

@@ -1,0 +1,84 @@
+# GitLab CI pipeline: test, build, deploy to Azure.
+#
+# This is the deployment path the service was originally shipped through. It is kept
+# here beside the GitHub Actions workflow because the two do different jobs: Actions
+# runs on every push to this mirror and its result is public, while this pipeline is
+# what pushes an image to a registry and rolls it out to Azure Container Apps, which
+# needs credentials and a subscription.
+#
+# Variables to set in the project's CI/CD settings, all masked:
+#   AZURE_CREDENTIALS      service principal JSON, from `az ad sp create-for-rbac --sdk-auth`
+#   AZURE_RESOURCE_GROUP   target resource group
+#   AZURE_CONTAINER_APP    target container app name
+#   REGISTRY_USER          container registry user
+#   REGISTRY_PASSWORD      container registry password
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  IMAGE_LATEST: $CI_REGISTRY_IMAGE:latest
+  DOCKER_DRIVER: overlay2
+
+test:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install --upgrade pip pytest ruff
+  script:
+    - ruff check app benchmark
+    - python -m pytest benchmark/ -q
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+build:
+  stage: build
+  image: docker:27
+  services:
+    - docker:27-dind
+  needs: ["test"]
+  before_script:
+    - echo "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USER" --password-stdin $CI_REGISTRY
+  script:
+    - docker build -t "$IMAGE" -t "$IMAGE_LATEST" .
+    # The same check the Actions workflow runs: the image must start with no
+    # credentials and answer on /api/health, or it is not shipped.
+    - docker run -d --name probe -p 8000:8000 -e USE_GPTCACHE=false "$IMAGE"
+    - |
+      for i in $(seq 1 30); do
+        docker exec probe python -c "import urllib.request;urllib.request.urlopen('http://localhost:8000/api/health')" && break
+        sleep 2
+      done
+    - docker rm -f probe
+    - docker push "$IMAGE"
+    - docker push "$IMAGE_LATEST"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+deploy:azure:
+  stage: deploy
+  image: mcr.microsoft.com/azure-cli:latest
+  needs: ["build"]
+  environment:
+    name: production
+  before_script:
+    - az login --service-principal
+      -u "$(echo $AZURE_CREDENTIALS | jq -r .clientId)"
+      -p "$(echo $AZURE_CREDENTIALS | jq -r .clientSecret)"
+      --tenant "$(echo $AZURE_CREDENTIALS | jq -r .tenantId)"
+  script:
+    - az containerapp update
+      --name "$AZURE_CONTAINER_APP"
+      --resource-group "$AZURE_RESOURCE_GROUP"
+      --image "$IMAGE"
+    # Confirm the rollout actually serves traffic rather than assuming the update
+    # succeeded because the command returned zero.
+    - FQDN=$(az containerapp show -n "$AZURE_CONTAINER_APP" -g "$AZURE_RESOURCE_GROUP" --query properties.configuration.ingress.fqdn -o tsv)
+    - curl -fs "https://$FQDN/api/health"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual

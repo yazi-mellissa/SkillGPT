@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -22,7 +22,7 @@ QUERY = Query(..., min_length=1, max_length=20_000,
               description="Free text: a job description, a CV, or a fragment of either.")
 
 
-@router.get("/search", response_model=List[Dict[str, Any]],
+@router.get("/search", response_model=list[dict[str, Any]],
             summary="Nearest skills in the vector index")
 async def search(
     query: str = QUERY,
@@ -41,7 +41,7 @@ async def search(
         raise HTTPException(status_code=502, detail=f"Vector search failed: {exc}") from exc
 
 
-@router.get("/search_openai", response_model=List[str],
+@router.get("/search_openai", response_model=list[str],
             summary="Skills extracted by an OpenAI model")
 async def search_openai(
     query: str = QUERY,
@@ -55,7 +55,7 @@ async def search_openai(
         raise HTTPException(status_code=502, detail=f"OpenAI search failed: {exc}") from exc
 
 
-@router.get("/search_gemini", response_model=List[str],
+@router.get("/search_gemini", response_model=list[str],
             summary="Skills extracted by Google Gemini")
 async def search_gemini(
     query: str = QUERY,
@@ -69,7 +69,7 @@ async def search_gemini(
         raise HTTPException(status_code=502, detail=f"Gemini search failed: {exc}") from exc
 
 
-@router.get("/search_encoder", response_model=List[Dict[str, Any]],
+@router.get("/search_encoder", response_model=list[dict[str, Any]],
             summary="Skills matched by a local transformer encoder")
 async def search_encoder(
     query: str = QUERY,

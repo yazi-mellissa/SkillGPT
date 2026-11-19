@@ -203,6 +203,39 @@ the normalisation, the two pieces that decide every number the table prints.
 which models are configured and on the contents of the Zilliz collection, so publishing one run
 as though it were the answer would be misleading. Run it against your own deployment.
 
+## Continuous integration and deployment
+
+Two pipelines, because they do different jobs.
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to this
+repository: lint, then the benchmark tests on Python 3.10, 3.11 and 3.12, then it builds
+the image, **starts it with no credentials at all and waits for `/api/health`**. That last
+step exists because a published version of this project could not be imported at all and
+nothing caught it, for the simple reason that nothing had ever tried to start it.
+
+[`.gitlab-ci.yml`](.gitlab-ci.yml) is the shipping path: the same checks, then push to a
+container registry and roll out to Azure Container Apps, with the deploy stage manual so a
+release is a decision rather than a consequence of merging.
+
+### Azure
+
+[`deploy/azure/main.bicep`](deploy/azure/main.bicep) describes the whole environment:
+Container Apps, Azure Cache for Redis, Log Analytics, ingress, and every key as a secret
+reference rather than a plain environment value.
+
+```bash
+export REGISTRY_USER=... REGISTRY_PASSWORD=... OPEN_API_KEY=... GEMINI_API_KEY=...
+./deploy/azure/deploy.sh my-resource-group westeurope myregistry.azurecr.io/skillgpt:v1
+```
+
+Two choices worth explaining. **Container Apps rather than AKS**, because this is one
+stateless container that should cost nothing between recruitment campaigns; `minReplicas`
+is 0 and it scales on HTTP concurrency. And **the liveness probe is not a readiness
+probe**: `/api/health` reports a missing provider key as a degraded backend, and a service
+answering on two backends out of four should keep taking traffic rather than be pulled out
+of rotation for it.
+
+
 ## What was wrong, and what changed
 
 The service as published could not start. These are the defects found and fixed, recorded

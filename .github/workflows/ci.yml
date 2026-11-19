@@ -1,0 +1,65 @@
+name: CI
+
+# Runs on every push. The benchmark's scoring and normalisation are what decide every
+# number this project reports, so they are tested on three Python versions and the
+# result is visible from the repository page rather than taken on trust.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install test dependencies
+        # Deliberately not the full requirements.txt: these tests exercise the scoring
+        # and the normalisation, which need no model provider and no vector database.
+        # Pulling openai, pymilvus and their transitive trees here would make the run
+        # minutes longer and would test nothing extra.
+        run: python -m pip install --upgrade pip pytest ruff
+
+      - name: Lint
+        run: ruff check app benchmark
+
+      - name: Test
+        run: python -m pytest benchmark/ -q
+
+  build:
+    # Only after the tests pass: an image that cannot be trusted is not worth building.
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t skillgpt:${{ github.sha }} .
+
+      - name: Start it with no credentials and check it comes up
+        # The service must start when no backend is configured and report that on
+        # /api/health. A published version of this project once failed at import and
+        # nothing caught it, because nothing ever tried to start it.
+        run: |
+          docker run -d --name skillgpt -p 8000:8000 \
+            -e USE_GPTCACHE=false skillgpt:${{ github.sha }}
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:8000/api/health; then
+              echo "  service is up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "service did not become healthy"; docker logs skillgpt; exit 1

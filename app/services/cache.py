@@ -18,7 +18,6 @@ import json
 import logging
 import re
 import unicodedata
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ class ResponseCache:
     def available(self) -> bool:
         return self._client is not None
 
-    def get(self, key: str) -> Optional[list]:
+    def get(self, key: str) -> list | None:
         if self._client is None:
             return None
         try:
