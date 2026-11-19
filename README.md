@@ -100,11 +100,56 @@ uvicorn app.main:app --reload
 | `GET /search_gemini?query=...` | Skills extracted by Gemini |
 | `GET /api/health` | Health check |
 
-## What is missing
+## Benchmark
 
-The three approaches have never been measured against each other on a common annotated set.
-Precision, recall, latency and cost per query would settle which one to use when, and that
-comparison is the next thing this repository should contain.
+Three interchangeable backends are only useful if you can say which one to use when, so
+[`benchmark/`](benchmark/) measures them against each other on the same input.
+
+```bash
+python -m benchmark.run_benchmark --url http://localhost:8000
+python -m benchmark.run_benchmark --mock      # no service or API key needed
+pytest benchmark/
+```
+
+**The annotated set.** [`dataset.jsonl`](benchmark/dataset.jsonl) holds 30 queries with their
+expected skills: 15 job descriptions, 10 CV extracts, and 5 deliberately awkward cases. The
+awkward ones are where backends separate: a two-word query with nothing to go on, a sentence
+that *negates* a skill ("you will not need any frontend experience"), a paragraph about the
+office with no skills in it at all, and one query in French.
+
+**What is measured, and why not a single score.**
+
+| | |
+|---|---|
+| precision, recall, F1 | reported separately, macro and micro |
+| latency | p50 and p95, which is what a caller feels |
+| cost | dollars per thousand queries, zero for the vector index |
+
+Precision and recall are kept apart on purpose. The vector backend cannot invent a skill, so
+its precision is bounded by its vocabulary and its recall by whatever is not in the index. An
+LLM can name a skill the index has never seen, and can also name one that is not in the text.
+A single F1 ranks a backend that invents skills above one that misses them; whether that is the
+right ranking depends on what the caller does with the answer, so the table shows both and
+leaves the choice where it belongs.
+
+**Normalisation.** The three endpoints return three shapes, and "Node.js", "NodeJS" and "node js"
+are one skill. [`normalize.py`](benchmark/normalize.py) folds all of that before scoring, because
+otherwise the benchmark measures formatting rather than extraction. The alias table is kept
+deliberately short: every entry in it makes the scores look better, so each one has to be a
+spelling of the same skill and not merely a related one.
+
+**Caching.** The service caches responses, so a second run measures the cache. Either start it
+with `USE_GPTCACHE=false` or pass `--cache-warmup`, which queries everything once before timing
+so that all three backends are measured in the same state. Comparing a cold LLM against a warm
+index is the easiest way to get a wrong answer out of this script.
+
+`--mock` runs the whole harness against synthetic responses with a known failure mode per
+backend, which is how the scoring itself is tested: `pytest benchmark/` covers the metrics and
+the normalisation, the two pieces that decide every number the table prints.
+
+**Results are not committed.** Running the benchmark costs API calls, and the numbers depend on
+which models are configured and on the contents of the Zilliz collection, so publishing one run
+as though it were the answer would be misleading. Run it against your own deployment.
 
 ## License
 
