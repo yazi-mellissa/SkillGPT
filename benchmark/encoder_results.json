@@ -1,0 +1,218 @@
+{
+  "queries": 30,
+  "top_k": 10,
+  "thresholds": [
+    0.0,
+    0.85,
+    0.92
+  ],
+  "modes": [
+    "spans",
+    "document"
+  ],
+  "load_seconds": {
+    "bert": 40.9,
+    "roberta": 23.8,
+    "distilbert": 2.7
+  },
+  "summary": [
+    {
+      "backend": "bert/spans t=0",
+      "macro F1": 0.4547,
+      "micro F1": 0.47,
+      "precision": 0.34,
+      "recall": 0.7789,
+      "p50 ms": 817.7,
+      "p95 ms": 1558.3,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "bert/spans t=0.85",
+      "macro F1": 0.4819,
+      "micro F1": 0.48,
+      "precision": 0.37,
+      "recall": 0.7789,
+      "p50 ms": 899.5,
+      "p95 ms": 1668.5,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "bert/spans t=0.92",
+      "macro F1": 0.6852,
+      "micro F1": 0.7143,
+      "precision": 0.7358,
+      "recall": 0.7228,
+      "p50 ms": 987.5,
+      "p95 ms": 2064.4,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "bert/document t=0",
+      "macro F1": 0.1147,
+      "micro F1": 0.1152,
+      "precision": 0.0833,
+      "recall": 0.2578,
+      "p50 ms": 132.7,
+      "p95 ms": 257.7,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "bert/document t=0.85",
+      "macro F1": 0.0667,
+      "micro F1": 0.0148,
+      "precision": 0.0667,
+      "recall": 0.0667,
+      "p50 ms": 113.2,
+      "p95 ms": 225.7,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "bert/document t=0.92",
+      "macro F1": 0.0667,
+      "micro F1": 0.0148,
+      "precision": 0.0667,
+      "recall": 0.0667,
+      "p50 ms": 101.5,
+      "p95 ms": 122.9,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "roberta/spans t=0",
+      "macro F1": 0.4143,
+      "micro F1": 0.4286,
+      "precision": 0.31,
+      "recall": 0.7117,
+      "p50 ms": 1064.3,
+      "p95 ms": 2222.5,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "roberta/spans t=0.85",
+      "macro F1": 0.4143,
+      "micro F1": 0.4286,
+      "precision": 0.31,
+      "recall": 0.7117,
+      "p50 ms": 987.6,
+      "p95 ms": 1544.2,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "roberta/spans t=0.92",
+      "macro F1": 0.4143,
+      "micro F1": 0.4286,
+      "precision": 0.31,
+      "recall": 0.7117,
+      "p50 ms": 970.9,
+      "p95 ms": 1876.4,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "roberta/document t=0",
+      "macro F1": 0.0591,
+      "micro F1": 0.0599,
+      "precision": 0.0433,
+      "recall": 0.1272,
+      "p50 ms": 90.7,
+      "p95 ms": 122.6,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "roberta/document t=0.85",
+      "macro F1": 0.0591,
+      "micro F1": 0.0599,
+      "precision": 0.0433,
+      "recall": 0.1272,
+      "p50 ms": 100.5,
+      "p95 ms": 194.6,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "roberta/document t=0.92",
+      "macro F1": 0.0599,
+      "micro F1": 0.0602,
+      "precision": 0.0442,
+      "recall": 0.1272,
+      "p50 ms": 95.1,
+      "p95 ms": 117.2,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "distilbert/spans t=0",
+      "macro F1": 0.5215,
+      "micro F1": 0.5392,
+      "precision": 0.39,
+      "recall": 0.8817,
+      "p50 ms": 547.5,
+      "p95 ms": 827.2,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "distilbert/spans t=0.85",
+      "macro F1": 0.5488,
+      "micro F1": 0.5506,
+      "precision": 0.42,
+      "recall": 0.8817,
+      "p50 ms": 492.3,
+      "p95 ms": 735.5,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "distilbert/spans t=0.92",
+      "macro F1": 0.6904,
+      "micro F1": 0.7062,
+      "precision": 0.6215,
+      "recall": 0.8444,
+      "p50 ms": 645.1,
+      "p95 ms": 1109.7,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "distilbert/document t=0",
+      "macro F1": 0.0915,
+      "micro F1": 0.0922,
+      "precision": 0.0667,
+      "recall": 0.2194,
+      "p50 ms": 67.0,
+      "p95 ms": 104.7,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "distilbert/document t=0.85",
+      "macro F1": 0.0667,
+      "micro F1": 0.0148,
+      "precision": 0.0667,
+      "recall": 0.0667,
+      "p50 ms": 49.6,
+      "p95 ms": 61.4,
+      "$/1k": 0.0,
+      "errors": 0
+    },
+    {
+      "backend": "distilbert/document t=0.92",
+      "macro F1": 0.0667,
+      "micro F1": 0.0148,
+      "precision": 0.0667,
+      "recall": 0.0667,
+      "p50 ms": 69.6,
+      "p95 ms": 141.1,
+      "$/1k": 0.0,
+      "errors": 0
+    }
+  ]
+}

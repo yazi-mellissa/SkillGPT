@@ -1,0 +1,10 @@
+# Local encoder backend (BERT, RoBERTa, DistilBERT). Kept out of requirements.txt
+# because torch is a large dependency and a deployment that only uses the hosted
+# backends should not have to carry it.
+#
+# CPU wheels:
+#   pip install -r requirements-encoder.txt --extra-index-url https://download.pytorch.org/whl/cpu
+#
+# These are the versions the published measurements were produced with.
+torch==2.14.1
+transformers==5.22.2

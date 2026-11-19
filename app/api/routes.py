@@ -1,48 +1,91 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, List, Any
 import logging
-from app.services.milvus_service import MilvusMemoryService
+from typing import Any, Dict, List
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.core.deps import (
+    get_encoder_service,
+    get_gemini_service,
+    get_milvus_service,
+    get_openai_service,
+)
 from app.services.gemini_service import GeminiService
+from app.services.milvus_service import MilvusMemoryService
 from app.services.openai_service import OpenAIService
-from app.core.config import get_settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.get("/search", response_model=List[Dict[str, Any]])
-async def search(query: str, milvus_service: MilvusMemoryService = Depends()):
-    """
-    Search for skills using vector similarity in Milvus/Zilliz
-    """
-    try:
-        query_vectors = milvus_service.encode_query(query)
-        results = milvus_service.get_relevant(query_vectors=query_vectors, num_relevant=15)
-        return results
-    except Exception as e:
-        logger.error(f"Error in search endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+# The three endpoints answer the same question through different machinery, so they take
+# the same argument and differ only in what they are willing to return.
+QUERY = Query(..., min_length=1, max_length=20_000,
+              description="Free text: a job description, a CV, or a fragment of either.")
 
-@router.get("/search_gemini", response_model=List[str])
-async def search_gemini(query: str, gemini_service: GeminiService = Depends()):
-    """
-    Search for skills using Google Gemini AI
-    """
-    try:
-        skills = gemini_service.search(query)
-        return skills
-    except Exception as e:
-        logger.error(f"Error in search_gemini endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Gemini search failed: {str(e)}")
 
-@router.get("/search_openai", response_model=List[str])
-async def search_openai(query: str, openai_service: OpenAIService = Depends()):
-    """
-    Search for skills using OpenAI models
+@router.get("/search", response_model=List[Dict[str, Any]],
+            summary="Nearest skills in the vector index")
+async def search(
+    query: str = QUERY,
+    milvus_service: MilvusMemoryService = Depends(get_milvus_service),
+):
+    """Embed the query and return the closest entries of a fixed skill vocabulary.
+
+    Bounded to what the index contains, so it cannot invent a skill, and cannot find one
+    the index has never been given.
     """
     try:
-        skills = openai_service.search(query)
-        return skills
-    except Exception as e:
-        logger.error(f"Error in search_openai endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"OpenAI search failed: {str(e)}")
-  
+        vectors = milvus_service.encode_query(query)
+        return milvus_service.get_relevant(query_vectors=vectors, num_relevant=15)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("vector search failed")
+        raise HTTPException(status_code=502, detail=f"Vector search failed: {exc}") from exc
+
+
+@router.get("/search_openai", response_model=List[str],
+            summary="Skills extracted by an OpenAI model")
+async def search_openai(
+    query: str = QUERY,
+    openai_service: OpenAIService = Depends(get_openai_service),
+):
+    """Open vocabulary: handles phrasings the index has never seen, and can invent."""
+    try:
+        return openai_service.search(query)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("OpenAI search failed")
+        raise HTTPException(status_code=502, detail=f"OpenAI search failed: {exc}") from exc
+
+
+@router.get("/search_gemini", response_model=List[str],
+            summary="Skills extracted by Google Gemini")
+async def search_gemini(
+    query: str = QUERY,
+    gemini_service: GeminiService = Depends(get_gemini_service),
+):
+    """The same task through a second provider, so the two can be compared on one input."""
+    try:
+        return gemini_service.search(query)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Gemini search failed")
+        raise HTTPException(status_code=502, detail=f"Gemini search failed: {exc}") from exc
+
+
+@router.get("/search_encoder", response_model=List[Dict[str, Any]],
+            summary="Skills matched by a local transformer encoder")
+async def search_encoder(
+    query: str = QUERY,
+    top_k: int = Query(15, ge=1, le=100),
+    min_score: float = Query(0.0, ge=-1.0, le=1.0,
+                             description="Drop matches below this cosine similarity."),
+    encoder=Depends(get_encoder_service),
+):
+    """BERT, RoBERTa or DistilBERT running locally, chosen by ENCODER_MODEL.
+
+    Free per query and offline, and bounded by the same catalogue as /search, so the two
+    differ only in how they embed. Each match carries its similarity, so a caller can
+    trade precision against recall without a second request.
+    """
+    try:
+        return encoder.search(query, top_k=top_k, min_score=min_score)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("encoder search failed")
+        raise HTTPException(status_code=502, detail=f"Encoder search failed: {exc}") from exc

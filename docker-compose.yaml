@@ -1,3 +1,6 @@
+# Every variable has a default, so `docker compose up` works on a clean checkout with no
+# .env file. The service starts with whatever backends are configured and reports the
+# rest as unavailable on /api/health, rather than refusing to start at all.
 services:
   api:
     build: .
@@ -7,21 +10,31 @@ services:
     volumes:
       - .:/app
     environment:
-      - API_HOST=${API_HOST}
-      - API_PORT=${API_PORT}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT={REDIS_PORT}
-      - OPEN_API_KEY=${OPEN_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - USE_GPTCACHE=${USE_GPTCACHE}
-      - ZILLIZ_URI=${ZILLIZ_URI}
-      - ZILLIZ_TOKEN=${ZILLIZ_TOKEN}
-      - WIPE_MILVUS_ON_START=${WIPE_MILVUS_ON_START}
-      - GEMINI_MODEL_NAME=${GEMINI_MODEL_NAME}
-      - OPENAI_MODEL_NAME=${OPENAI_MODEL_NAME}
+      API_HOST: ${API_HOST:-0.0.0.0}
+      API_PORT: ${API_PORT:-8000}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      # This line previously read {REDIS_PORT} with no dollar sign, so the container
+      # received the literal string and int() raised on startup.
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      OPEN_API_KEY: ${OPEN_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      USE_GPTCACHE: ${USE_GPTCACHE:-true}
+      ZILLIZ_URI: ${ZILLIZ_URI:-}
+      ZILLIZ_TOKEN: ${ZILLIZ_TOKEN:-}
+      WIPE_MILVUS_ON_START: ${WIPE_MILVUS_ON_START:-false}
+      GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME:-gemini-1.5-flash}
+      OPENAI_MODEL_NAME: ${OPENAI_MODEL_NAME:-gpt-4o-mini}
     depends_on:
-      - redis
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
     restart: unless-stopped
 
   redis:
@@ -32,6 +45,11 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
 volumes:

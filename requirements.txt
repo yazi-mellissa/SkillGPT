@@ -1,10 +1,21 @@
-fastapi>=0.104.0
-uvicorn>=0.23.2
-python-dotenv>=1.0.0
-openai>=1.3.0
-google-generativeai>=0.3.0
-pandas>=2.1.0
-pymilvus>=2.3.0
-gptcache>=0.1.40
-pydantic>=2.4.2
-pydantic-settings>=2.0.3
+# Pinned. The previous file used >= throughout, so two builds months apart could
+# resolve to different libraries and the service would behave differently for
+# reasons no commit explains.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+
+openai==1.59.3
+google-generativeai==0.8.3
+pymilvus==2.5.0
+pandas==2.2.3
+
+# GPTCache stores its entries in Redis; the client was never declared and the image
+# only worked because a transitive dependency happened to pull it in.
+gptcache==0.1.44
+redis==5.2.1
+
+# Optional: the local encoder backend (BERT, RoBERTa, DistilBERT).
+# Install with:  pip install -r requirements-encoder.txt

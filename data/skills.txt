@@ -1,0 +1,158 @@
+# Skill catalogue for the vector and encoder backends.
+# Built from the benchmark's gold labels plus common industry skills,
+# so that what the backends can return and what they are scored on agree.
+agile
+airflow
+android
+angular
+ansible
+arduino
+arm
+aws
+azure
+bash
+beam
+c
+c++
+can bus
+cassandra
+ci/cd
+cloud architecture
+cloudformation
+code review
+computer vision
+core data
+cryptography
+css
+cuda
+data analysis
+data science
+data visualization
+data warehousing
+database administration
+databricks
+dbt
+deep learning
+design systems
+devops
+distributed systems
+django
+docker
+elasticsearch
+embedded systems
+express
+fastapi
+figma
+fine-tuning
+fivetran
+flask
+flink
+git
+github actions
+gitlab ci
+go
+google cloud
+grafana
+graphql
+grpc
+hadoop
+helm
+hibernate
+high-performance computing
+hive
+html
+hugging face
+iam
+image segmentation
+ios
+java
+javascript
+jenkins
+jetpack compose
+jtag
+junit
+kafka
+kanban
+keras
+kotlin
+kubernetes
+laravel
+lightgbm
+linux
+llm
+looker
+machine learning
+microservices
+mongodb
+mpi
+mqtt
+mysql
+natural language processing
+neo4j
+network security
+next.js
+node
+numpy
+openmp
+oracle
+owasp
+pandas
+parallel computing
+penetration testing
+php
+playwright
+postgresql
+prometheus
+prompt engineering
+prototyping
+pytest
+python
+pytorch
+query optimisation
+r
+r markdown
+rabbitmq
+rag
+raspberry pi
+react
+redis
+reinforcement learning
+research
+rest
+rtos
+ruby
+rust
+s3
+scala
+scikit-learn
+scrum
+selenium
+siem
+slurm
+snowflake
+spark
+spring boot
+sql
+sqlite
+stakeholder management
+statistics
+survival analysis
+svelte
+swift
+swiftui
+tableau
+team leadership
+tensorflow
+terraform
+test automation
+time series
+transformers
+typescript
+ui/ux
+unit testing
+usability testing
+user research
+vue
+wireframing
+wordpress
+xgboost

@@ -1,77 +1,62 @@
-from openai import OpenAI
 import logging
-from fastapi import Depends
-from app.services.gpt_cache import GPTCacheManager
-from app.core.config import get_settings
+
+from openai import OpenAI
+
+from app.services.cache import ResponseCache, cache_key
 
 logger = logging.getLogger(__name__)
 
-class OpenAIService:
-    """
-    A service class to interface with OpenAI models for skill extraction.
-    """
-    
-    def __init__(self, settings = Depends(get_settings)):
-        """
-        Initializes the OpenAIService with OpenAI API key, model name, and generation configuration.
-        
-        Args:
-            settings: Application settings from dependency injection
-        """
-        self.original_client = OpenAI(api_key=settings.OPEN_API_KEY)
-        self.model_name = settings.OPENAI_MODEL_NAME
-        
-        self.generation_config = {
-            "max_tokens": 100,
-            "n": 1,
-            "stop": None,
-            "temperature": 0.5,
-        }
-        
-        self.use_cache = settings.USE_GPTCACHE
-        
-        if self.use_cache:
-            self.cache_manager = GPTCacheManager(
-                settings.OPEN_API_KEY, 
-                settings.ZILLIZ_URI, 
-                settings.ZILLIZ_TOKEN
-            )
-            self.client = self.cache_manager.get_cached_client(self.original_client)
-        else:
-            self.client = self.original_client
-            
-        logger.info(f"OpenAIService instance created with model: {self.model_name}, cache enabled: {self.use_cache}")
+SYSTEM_PROMPT = (
+    "Extract the professional skills named in the user's text. "
+    "Return them as a comma-separated list and nothing else. "
+    "Only list skills the text actually mentions; if it mentions none, return an empty line."
+)
 
-    def search(self, query: str):
-        """
-        Searches for skills using the OpenAI API based on the given query.
-        
-        Args:
-            query (str): User input query to search for.
-        
-        Returns:
-            list: A list of skills extracted from the response.
-        """
-        if not query:
-            logger.error("Empty query provided")
+
+class OpenAIService:
+    """Skill extraction through an OpenAI chat model, with a Redis response cache."""
+
+    def __init__(self, settings):
+        self.client = OpenAI(api_key=settings.OPEN_API_KEY)
+        self.model_name = settings.OPENAI_MODEL_NAME
+        self.generation_config = {
+            "max_tokens": 200,
+            "n": 1,
+            # Temperature 0 on purpose. Extraction is not a creative task, and a
+            # deterministic answer is what makes the response cache sound: the cached
+            # reply is the one the model would give again.
+            "temperature": 0.0,
+        }
+        self.cache = (
+            ResponseCache(settings.REDIS_HOST, settings.REDIS_PORT, settings.REDIS_PASSWORD)
+            if settings.USE_GPTCACHE
+            else None
+        )
+        logger.info("OpenAIService ready, model=%s, cache=%s",
+                    self.model_name, bool(self.cache and self.cache.available))
+
+    def search(self, query: str) -> list:
+        if not query or not query.strip():
             raise ValueError("Query cannot be empty")
 
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": "Extract key skills from the user's input and return them as a comma-separated list."},
-                    {"role": "user", "content": query},
-                ],
-                **self.generation_config
-            )
-            
-            content = response.choices[0].message.content
-            skills_list = [skill.strip() for skill in content.split(',')]
+        key = cache_key("openai", self.model_name, query)
+        if self.cache:
+            hit = self.cache.get(key)
+            if hit is not None:
+                return hit
 
-            logger.info(f"Successfully extracted {len(skills_list)} skills using OpenAI model")
-            return skills_list
-        
-        except Exception as e:
-            logger.error(f"Failed to extract skills with OpenAI: {e}")
-            raise
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": query},
+            ],
+            **self.generation_config,
+        )
+        content = response.choices[0].message.content or ""
+        skills = [s.strip() for s in content.split(",") if s.strip()]
+
+        if self.cache:
+            self.cache.set(key, skills)
+        logger.info("OpenAI returned %d skills", len(skills))
+        return skills

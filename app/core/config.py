@@ -33,8 +33,11 @@ class Settings(BaseSettings):
     
     # Model settings
     GEMINI_MODEL_NAME: str = os.getenv("GEMINI_MODEL_NAME", "gemini-1.0-pro")
-    OPENAI_MODEL_NAME: str = os.getenv("OPENAI_MODEL_NAME", "gpt-3.5-turbo")
-    BERT_MODEL_NAME: str = os.getenv("BERT_MODEL_NAME", "models/fine-tuned-bert")
+    OPENAI_MODEL_NAME: str = os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini")
+
+    # Local encoder backend: bert, roberta or distilbert.
+    ENCODER_MODEL: str = os.getenv("ENCODER_MODEL", "bert")
+    SKILL_CATALOGUE: str = os.getenv("SKILL_CATALOGUE", "data/skills.txt")
 
     class Config:
         env_file = ".env"

@@ -1,15 +1,16 @@
-# SkillGPT: three ways to pull skills out of free text
+# SkillGPT: four ways to pull skills out of free text
 
 Given a job description, a CV or any piece of free text, return the skills it mentions.
 
-The interesting part is that there is no single right way to do this, so this service implements
-**three** and puts them behind the same interface:
+There is no single right way to do this, so this service implements **four** and puts them behind
+one interface, which is what makes them comparable:
 
 | Approach | Endpoint | How it decides |
 |---|---|---|
 | **Vector search** | `/search` | Embeds the query and retrieves the 15 nearest entries from a Milvus/Zilliz collection of known skills. Bounded to a fixed vocabulary, fast, cheap, no hallucination possible. |
 | **OpenAI** | `/search_openai` | Asks a GPT model to extract the skills. Open vocabulary, handles phrasing the index has never seen, costs a call and can invent. |
 | **Gemini** | `/search_gemini` | The same, through Google Gemini, so the two providers can be compared on identical input. |
+| **Local encoder** | `/search_encoder` | BERT, RoBERTa or DistilBERT running on the machine itself. Free per query, offline, bounded by the same catalogue as the vector index. Selected with `ENCODER_MODEL`. |
 
 Swapping between them is a change of URL, which is the point: the three can be measured against
 each other on the same queries.
@@ -98,7 +99,58 @@ uvicorn app.main:app --reload
 | `GET /search?query=...` | The 15 closest skills in the vector index |
 | `GET /search_openai?query=...` | Skills extracted by the OpenAI model |
 | `GET /search_gemini?query=...` | Skills extracted by Gemini |
-| `GET /api/health` | Health check |
+| `GET /search_encoder?query=...&top_k=15&min_score=0.9` | Catalogue skills matched by the local encoder, each with its cosine similarity |
+| `GET /api/health` | Liveness, plus which of the four backends is actually configured |
+
+## The local encoder, measured
+
+`python -m benchmark.compare_encoders` compares the three encoders on the annotated set.
+No service, no API key, no cost: the models run in process, so anyone who clones this
+repository can reproduce the table below.
+
+Every model shares the catalogue, the pooling and the scoring, so the differences come
+from pre-training alone. `spans` scores every one-to-three-word window of the query
+against the catalogue and keeps each skill's best window. `document` embeds the whole
+query as a single vector, which is the obvious approach.
+
+| Backend | macro F1 | precision | recall | p50 ms |
+|---|---|---|---|---|
+| **DistilBERT, spans, threshold 0.92** | **0.690** | 0.622 | **0.844** | 645 |
+| BERT, spans, threshold 0.92 | 0.685 | **0.736** | 0.723 | 988 |
+| DistilBERT, spans, threshold 0.85 | 0.549 | 0.420 | 0.882 | 492 |
+| BERT, spans, threshold 0.85 | 0.482 | 0.370 | 0.779 | 900 |
+| RoBERTa, spans, any threshold | 0.414 | 0.310 | 0.712 | 971 |
+| BERT, document, threshold 0 | 0.115 | 0.083 | 0.258 | 133 |
+| DistilBERT, document, threshold 0 | 0.092 | 0.067 | 0.219 | 67 |
+| RoBERTa, document, threshold 0 | 0.059 | 0.043 | 0.127 | 91 |
+
+Four things came out of this, and three of them were not what I expected.
+
+**Granularity is worth six times more than the model.** Matching short windows instead of
+the whole document takes BERT from 0.115 to 0.685 macro F1. Every model is useless in
+`document` mode and usable in `spans` mode. Comparing a 30-word advert to a one-word
+skill compares objects of different lengths, and the nearest neighbours come back
+dominated by whatever the document is broadly about.
+
+**The smallest model wins.** DistilBERT has 40% fewer parameters than BERT, loads in
+2.7 seconds against 40.9, answers in 645 ms against 988, and still scores highest. It
+trades precision for recall against BERT rather than being better at everything, but on
+this task the trade is favourable and it costs less at every step.
+
+**RoBERTa is the worst of the three, and insensitive to the threshold.** It scores
+identically at 0, 0.85 and 0.92, which means its similarities sit in a band narrower than
+the sweep. A threshold is the only tuning knob this backend has, and on RoBERTa it does
+nothing.
+
+**The threshold is not a detail.** For DistilBERT, moving it from 0 to 0.92 raises macro
+F1 from 0.522 to 0.690 at the cost of four points of recall. A nearest-neighbour backend
+always returns `top_k` answers, so the threshold is what turns a ranked list into a
+decision.
+
+What this does not settle: how a local encoder compares against the hosted models. That
+needs API keys, so it is left to whoever has them, through
+`python -m benchmark.run_benchmark`.
+
 
 ## Benchmark
 
@@ -150,6 +202,30 @@ the normalisation, the two pieces that decide every number the table prints.
 **Results are not committed.** Running the benchmark costs API calls, and the numbers depend on
 which models are configured and on the contents of the Zilliz collection, so publishing one run
 as though it were the answer would be misleading. Run it against your own deployment.
+
+## What was wrong, and what changed
+
+The service as published could not start. These are the defects found and fixed, recorded
+because the first one explains a feature that was documented and had never run.
+
+- **The response cache could never return a hit.** The routes declared their dependencies
+  as `Depends()` on the service classes, so FastAPI rebuilt each service on every request,
+  and each constructor opens network clients. The OpenAI service rebuilt its whole cache
+  manager per call, so the cache was empty every time. Services are now built once.
+- **The application could not import at all.** `gptcache.adapter.openai` subclasses
+  `openai.ChatCompletion`, removed in openai 1.0, while `requirements.txt` asked for
+  openai>=1.3. The import raised, and it sat on the path of every request. GPTCache is
+  replaced by a small explicit Redis cache.
+- **The container crashed on startup.** `docker-compose.yaml` had
+  `REDIS_PORT={REDIS_PORT}` with no dollar sign, so `int()` received a literal brace.
+- **A declared dependency was missing.** GPTCache stores in Redis, and `redis` was not in
+  `requirements.txt`; the image worked only through a transitive dependency.
+- **Dead configuration.** `BERT_MODEL_NAME` pointed at a component deleted in an earlier
+  refactor. BERT is now a real backend again rather than a setting with nothing behind it.
+- Versions are pinned, every compose variable has a default, and `/api/health` reports
+  which backends are configured, so the service starts and stays useful when a key is
+  absent instead of failing as a whole.
+
 
 ## License
 

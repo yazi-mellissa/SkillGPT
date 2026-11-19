@@ -3,7 +3,6 @@ import pandas as pd
 import logging
 from pymilvus import MilvusClient, Collection
 from pymilvus import model
-from fastapi import Depends
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -13,7 +12,7 @@ class MilvusMemoryService:
     A service class for managing skill embeddings using Milvus vector database on Zilliz Cloud.
     """
     
-    def __init__(self, settings = Depends(get_settings)):
+    def __init__(self, settings):
         """
         Initializes a new instance of MilvusMemoryService with Zilliz Cloud.
         

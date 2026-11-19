@@ -1,32 +1,52 @@
 import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from app.core.config import get_settings
+
 from app.api.routes import router
+from app.core.config import get_settings
+from app.core.deps import warm_up
 from app.core.logging import setup_logging
 
-# Initialize logging
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
-app = FastAPI(title="Skills API", description="API for searching skills using various AI models")
+# What each backend reported at startup. Exposed on /api/health so that a deployment
+# missing a key is visible from outside rather than only in the logs.
+BACKEND_STATUS: dict = {}
 
-# Include API routes
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Build the services once, before the first request.
+
+    `@app.on_event` is deprecated in the FastAPI version this project depends on; this is
+    the supported replacement. Doing the work here rather than lazily also means a bad
+    configuration fails at startup, where it is obvious, instead of as the first user's
+    unexplained error.
+    """
+    settings = get_settings()
+    logger.info("starting on %s:%s", settings.API_HOST, settings.API_PORT)
+    BACKEND_STATUS.update(warm_up(settings))
+    logger.info("backends: %s", BACKEND_STATUS)
+    yield
+    logger.info("shutting down")
+
+
+app = FastAPI(
+    title="SkillGPT",
+    description="Skill extraction from free text through three interchangeable backends.",
+    version="1.1.0",
+    lifespan=lifespan,
+)
 app.include_router(router)
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup"""
-    logger.info("Starting up the application")
-    settings = get_settings()
-    logger.info(f"Running with settings: API_HOST={settings.API_HOST}, API_PORT={settings.API_PORT}")
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up resources on shutdown"""
-    logger.info("Shutting down the application")
-
-@app.get("/api/health")
+@app.get("/api/health", summary="Liveness and per-backend readiness")
 def health_check():
-    """Health check endpoint for container orchestration"""
-    return {"status": "healthy"}
+    """Healthy means the process is up. `backends` says which of the three can answer.
+
+    The two are reported separately on purpose: a container orchestrator should not
+    restart the service because one provider's key is missing.
+    """
+    return {"status": "healthy", "backends": BACKEND_STATUS}
