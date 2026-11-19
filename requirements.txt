@@ -10,6 +10,11 @@ python-dotenv==1.0.1
 openai==1.59.3
 google-generativeai==0.8.3
 pymilvus==2.5.0
+# pymilvus still imports pkg_resources, which Python 3.12 no longer ships: setuptools
+# stopped being installed by default. Without this the container dies at import on 3.12,
+# which is how the CI build job found it.
+setuptools==75.6.0
+
 pandas==2.2.3
 
 # GPTCache stores its entries in Redis; the client was never declared and the image
